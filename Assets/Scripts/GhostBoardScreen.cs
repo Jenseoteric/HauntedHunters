@@ -43,7 +43,9 @@ public class GhostBoardScreen : MonoBehaviour
     [SerializeField] private TMP_Text shiftLabel;  // whether board shift is available
 
     [Header("Scene Navigation")]
-    [SerializeField] private string nextSceneName = "InvestigatorStart";
+    // [SerializeField] private string nextSceneName = "InvestigatorStart";
+    // no investigator use of the app
+    [SerializeField] private string nextSceneName = "GhostStart";
 
     [Header("Visual Settings")]
     [SerializeField] private Color wallColor = new Color(0.22f, 0.25f, 0.32f);
@@ -228,9 +230,9 @@ public class GhostBoardScreen : MonoBehaviour
 
         //grey out dpad buttons when no moves remain
         bool canMove = GameManager.Instance.movesRemaining > 0;
-        dpadUp.interactable    = canMove;
-        dpadDown.interactable  = canMove;
-        dpadLeft.interactable  = canMove;
+        dpadUp.interactable = canMove;
+        dpadDown.interactable = canMove;
+        dpadLeft.interactable = canMove;
         dpadRight.interactable = canMove;
     }
 

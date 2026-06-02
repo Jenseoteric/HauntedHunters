@@ -178,7 +178,7 @@ MonoBehaviour:
   roundLabel: {fileID: 971515953}
   movesLabel: {fileID: 1932367819}
   shiftLabel: {fileID: 1542482317}
-  nextSceneName: InvestigatorStart
+  nextSceneName: GhostStart
   wallColor: {r: 0.22, g: 0.25, b: 0.32, a: 1}
   passageColor: {r: 0.1, g: 0.11, b: 0.14, a: 1}
   investigatorColor: {r: 0.27, g: 0.6, b: 0.85, a: 1}
