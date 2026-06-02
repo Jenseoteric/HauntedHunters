@@ -17,9 +17,9 @@ public class GameManager : MonoBehaviour
     public int ghostCol = 0;
 
     [Header("Turn Resources")]
-    public int maxMovesPerTurn  = 3;    // how many steps ghost can move per turn
-    public int movesRemaining   = 3;    // counts down, resets on EndGhostTurn
-    public bool hasShiftedBoard = false; // only one row/col shift allowed per turn
+    public int maxMovesPerTurn = 3;    //how many steps ghost can move per turn
+    public int movesRemaining = 3;    //counts down, resets on EndGhostTurn
+    public bool hasShiftedBoard = false; //only one row/col shift allowed per turn
 
     [Header("Round Tracking")]
     public int roundNumber = 1;
@@ -54,7 +54,7 @@ public class GameManager : MonoBehaviour
     public void EndGhostTurn()
     {
         roundNumber++;
-        movesRemaining  = maxMovesPerTurn;
+        movesRemaining = maxMovesPerTurn;
         hasShiftedBoard = false;
     }
 

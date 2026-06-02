@@ -25,44 +25,31 @@ using TMPro;
 /// </summary>
 public class GhostBoardScreen : MonoBehaviour
 {
-    [Header("UI References")]
     [SerializeField] private RectTransform gridContainer;
     [SerializeField] private GameObject cellPrefab;
     [SerializeField] private GameObject arrowButtonPrefab;
     [SerializeField] private Button endTurnButton;
-
-    [Header("D-Pad (Ghost Movement)")]
     [SerializeField] private Button dpadUp;
     [SerializeField] private Button dpadDown;
     [SerializeField] private Button dpadLeft;
     [SerializeField] private Button dpadRight;
-
-    [Header("HUD Labels")]
-    [SerializeField] private TMP_Text roundLabel;  // top-left yellow round counter
-    [SerializeField] private TMP_Text movesLabel;  // remaining move steps
-    [SerializeField] private TMP_Text shiftLabel;  // whether board shift is available
-
-    [Header("Scene Navigation")]
+    [SerializeField] private TMP_Text roundLabel;
+    [SerializeField] private TMP_Text movesLabel;
+    [SerializeField] private TMP_Text shiftLabel;
     // [SerializeField] private string nextSceneName = "InvestigatorStart";
-    // no investigator use of the app
+    // no investigator use of the app so thats why this line is commented out ^^^
     [SerializeField] private string nextSceneName = "GhostStart";
-
-    [Header("Visual Settings")]
     [SerializeField] private Color wallColor = new Color(0.22f, 0.25f, 0.32f);
     [SerializeField] private Color passageColor = new Color(0.10f, 0.11f, 0.14f);
     [SerializeField] private Color investigatorColor = new Color(0.27f, 0.60f, 0.85f);
     [SerializeField] private Color ghostColor = new Color(0.85f, 0.85f, 1.00f);
-
-    [Header("Arrow Settings")]
     [SerializeField] private float arrowOffset = 50f;
     [SerializeField] private float arrowSize = 80f;
-    // arrowSize exposed to inspector so you can tweak without touching code
+    // arrowsize is changeable via the inspector anyway
 
     private int gridSize;
     private Image[,] cellImages;
     private Canvas rootCanvas;
-
-    // functions
     void Start()
     {
         if (GameManager.Instance == null)
@@ -90,18 +77,22 @@ public class GhostBoardScreen : MonoBehaviour
         StartCoroutine(BuildArrowsNextFrame());
     }
 
+
     IEnumerator BuildArrowsNextFrame()
+    //coroutine for grid gen
     {
         //force the grid layout to fully calculate before we read its corners
         //this is what was causing the slight arrow misalignment previously
+        //^this bug was hopeless for me to fix so thank you ClaudeAI for finding a solution
+
         LayoutRebuilder.ForceRebuildLayoutImmediate(gridContainer);
         yield return null;
         yield return null;
-        // two frames to be safe - layout rebuild can take a frame to propagate
+        //2 frames for margin of error purposes
         BuildArrows();
     }
 
-    //visual 6x6 grid 
+    //visual (6x6 now) grid 
     void BuildGrid()
     {
         GridLayoutGroup layout = gridContainer.GetComponent<GridLayoutGroup>();
@@ -123,14 +114,14 @@ public class GhostBoardScreen : MonoBehaviour
     //ghost movement functions
     void TryMoveGhost(int dRow, int dCol)
     {
-        //block movement if no moves left this turn
+        //cant move if no moves left this turn
         if (GameManager.Instance.movesRemaining <= 0)
             return;
 
         int newRow = GameManager.Instance.ghostRow + dRow;
         int newCol = GameManager.Instance.ghostCol + dCol;
 
-        //checking bounds
+        //bound checker
         if (newRow < 0 || newRow >= gridSize || newCol < 0 || newCol >= gridSize)
             return;
 
@@ -145,12 +136,12 @@ public class GhostBoardScreen : MonoBehaviour
         RefreshHUD();
     }
 
-    // ── Spawn edge arrows for row/column shifting
+    //arrow buttons for moving rows and columns 
     void BuildArrows()
     {
         Vector3[] corners = new Vector3[4];
         gridContainer.GetWorldCorners(corners);
-        // corners: 0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right
+        //corners: 0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right
 
         RectTransform canvasRect = rootCanvas.GetComponent<RectTransform>();
 
@@ -178,13 +169,16 @@ public class GhostBoardScreen : MonoBehaviour
 
     Vector2 WorldToCanvasLocal(Vector3 worldPos, RectTransform canvasRect)
     {
+
         Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(null, worldPos);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect, screenPoint, null, out Vector2 localPoint);
         return localPoint;
+
     }
 
     void SpawnArrow(string label, string axis, int index, int direction, Vector2 canvasLocalPos)
+
     {
         GameObject btn = Instantiate(arrowButtonPrefab, rootCanvas.transform);
         btn.transform.SetAsLastSibling();
@@ -243,9 +237,8 @@ public class GhostBoardScreen : MonoBehaviour
         dpadLeft.interactable = canMove;
         dpadRight.interactable = canMove;
     }
-
-    // ── Redraw all cells ──────────────────────────────────────────────────────
     void RefreshGrid()
+    //this does what it says, simply updates the grid each time it needs to do so
     {
         int[,] grid = GameManager.Instance.grid;
         int invRow = GameManager.Instance.investigatorRow;
@@ -257,18 +250,16 @@ public class GhostBoardScreen : MonoBehaviour
         {
             for (int c = 0; c < gridSize; c++)
             {
-                // Ghost takes priority visually if on same cell as investigator
                 if (r == ghRow && c == ghCol)
                     cellImages[r, c].color = ghostColor;
                 else if (r == invRow && c == invCol)
                     cellImages[r, c].color = investigatorColor;
+                //ignore investigator stuff. outdated, but not worth removing right now
                 else
                     cellImages[r, c].color = grid[r, c] == 1 ? wallColor : passageColor;
             }
         }
     }
-
-    // ── End turn ──────────────────────────────────────────────────────────────
     void OnEndTurn()
     {
         GameManager.Instance.EndGhostTurn();
