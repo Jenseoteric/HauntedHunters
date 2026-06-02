@@ -923,9 +923,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ced0ee76d2a462a499b7bec13fe05d56, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
-  gridSize: 8
+  gridSize: 6
   investigatorRow: 0
   investigatorCol: 0
+  ghostRow: 3
+  ghostCol: 3
+  maxMovesPerTurn: 3
+  movesRemaining: 3
+  hasShiftedBoard: 0
+  roundNumber: 1
 --- !u!4 &1633046716
 Transform:
   m_ObjectHideFlags: 0

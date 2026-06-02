@@ -4,11 +4,12 @@ public class GameManager : MonoBehaviour
     public static GameManager Instance { get; private set; }
 
     [Header("Grid Settings")]
-    public int gridSize = 8;
+    public int gridSize = 6;
+    // changed from 8 to 6 for 6x6 grid
 
     [Header("Investigator State")]
-    public int investigatorRow = 7;
-    public int investigatorCol = 7;
+    public int investigatorRow = 5;
+    public int investigatorCol = 5;
     // no investigators in app . Useless 
 
     [Header("Ghost State")]

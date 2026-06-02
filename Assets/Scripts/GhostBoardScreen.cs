@@ -13,7 +13,7 @@ using TMPro;
 /// SCENE NAME: "GhostBoard"
 ///
 /// INSPECTOR SETUP:
-/// - gridContainer      → RectTransform holding the 8x8 cell images
+/// - gridContainer      → RectTransform holding the 6x6 cell images
 /// - cellPrefab         → Prefab with an Image component
 /// - arrowButtonPrefab  → Prefab with Button + TMP_Text child
 /// - endTurnButton      → Button to end the ghost's turn
@@ -21,7 +21,7 @@ using TMPro;
 /// - roundLabel         → TMP_Text top-left, yellow, shows round number
 /// - movesLabel         → TMP_Text showing remaining moves
 /// - shiftLabel         → TMP_Text showing whether shift has been used
-/// - nextSceneName      → "InvestigatorStart"
+/// - nextSceneName      → "GhostStart"
 /// </summary>
 public class GhostBoardScreen : MonoBehaviour
 {
@@ -54,7 +54,9 @@ public class GhostBoardScreen : MonoBehaviour
     [SerializeField] private Color ghostColor = new Color(0.85f, 0.85f, 1.00f);
 
     [Header("Arrow Settings")]
-    [SerializeField] private float arrowOffset = 55f;
+    [SerializeField] private float arrowOffset = 50f;
+    [SerializeField] private float arrowSize = 80f;
+    // arrowSize exposed to inspector so you can tweak without touching code
 
     private int gridSize;
     private Image[,] cellImages;
@@ -78,7 +80,6 @@ public class GhostBoardScreen : MonoBehaviour
         RefreshHUD();
 
         //listeners for dpad
-
         dpadUp.onClick.AddListener(() => TryMoveGhost(-1, 0));
         dpadDown.onClick.AddListener(() => TryMoveGhost(1, 0));
         dpadLeft.onClick.AddListener(() => TryMoveGhost(0, -1));
@@ -91,11 +92,16 @@ public class GhostBoardScreen : MonoBehaviour
 
     IEnumerator BuildArrowsNextFrame()
     {
+        //force the grid layout to fully calculate before we read its corners
+        //this is what was causing the slight arrow misalignment previously
+        LayoutRebuilder.ForceRebuildLayoutImmediate(gridContainer);
         yield return null;
+        yield return null;
+        // two frames to be safe - layout rebuild can take a frame to propagate
         BuildArrows();
     }
 
-    //visual 8x8 grid 
+    //visual 6x6 grid 
     void BuildGrid()
     {
         GridLayoutGroup layout = gridContainer.GetComponent<GridLayoutGroup>();
@@ -125,7 +131,6 @@ public class GhostBoardScreen : MonoBehaviour
         int newCol = GameManager.Instance.ghostCol + dCol;
 
         //checking bounds
-
         if (newRow < 0 || newRow >= gridSize || newCol < 0 || newCol >= gridSize)
             return;
 
@@ -145,6 +150,7 @@ public class GhostBoardScreen : MonoBehaviour
     {
         Vector3[] corners = new Vector3[4];
         gridContainer.GetWorldCorners(corners);
+        // corners: 0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right
 
         RectTransform canvasRect = rootCanvas.GetComponent<RectTransform>();
 
@@ -159,13 +165,14 @@ public class GhostBoardScreen : MonoBehaviour
 
         for (int i = 0; i < gridSize; i++)
         {
+            //centre of each cell along each axis
             float cellCentreX = topLeft.x + (i * cellW) + (cellW / 2f);
             float cellCentreY = topLeft.y - (i * cellH) - (cellH / 2f);
 
-            SpawnArrow("▶", "row", i, 1, new Vector2(bottomLeft.x - arrowOffset, cellCentreY));
-            SpawnArrow("◀", "row", i, -1, new Vector2(topRight.x + arrowOffset, cellCentreY));
-            SpawnArrow("▼", "col", i, 1, new Vector2(cellCentreX, topLeft.y + arrowOffset));
-            SpawnArrow("▲", "col", i, -1, new Vector2(cellCentreX, bottomLeft.y - arrowOffset));
+            SpawnArrow("→", "row", i, 1, new Vector2(bottomLeft.x - arrowOffset, cellCentreY));
+            SpawnArrow("←", "row", i, -1, new Vector2(topRight.x + arrowOffset, cellCentreY));
+            SpawnArrow("↓", "col", i, 1, new Vector2(cellCentreX, topLeft.y + arrowOffset));
+            SpawnArrow("↑", "col", i, -1, new Vector2(cellCentreX, bottomLeft.y - arrowOffset));
         }
     }
 
@@ -188,7 +195,8 @@ public class GhostBoardScreen : MonoBehaviour
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = canvasLocalPos;
-        rt.sizeDelta = new Vector2(55f, 55f);
+        rt.sizeDelta = new Vector2(arrowSize, arrowSize);
+        // size driven by inspector field now, was hardcoded 65f before
 
         TMP_Text text = btn.GetComponentInChildren<TMP_Text>();
         if (text != null) text.text = label;
