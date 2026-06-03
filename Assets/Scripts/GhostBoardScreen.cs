@@ -3,28 +3,9 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
 using TMPro;
-
-/// <summary>
-/// GhostBoardScreen.cs
-/// Ghost's board screen. The ghost can:
-///   1. Shift rows/columns using edge arrows (maze manipulation) - once per turn
-///   2. Move their token tile by tile using a D-pad - up to 3 steps per turn
-///
-/// SCENE NAME: "GhostBoard"
-///
-/// INSPECTOR SETUP:
-/// - gridContainer      → RectTransform holding the 6x6 cell images
-/// - cellPrefab         → Prefab with an Image component
-/// - arrowButtonPrefab  → Prefab with Button + TMP_Text child
-/// - endTurnButton      → Button to end the ghost's turn
-/// - dpadUp/Down/Left/Right → Four buttons for ghost movement
-/// - roundLabel         → TMP_Text top-left, yellow, shows round number
-/// - movesLabel         → TMP_Text showing remaining moves
-/// - shiftLabel         → TMP_Text showing whether shift has been used
-/// - nextSceneName      → "GhostStart"
-/// </summary>
 public class GhostBoardScreen : MonoBehaviour
 {
+    private Dictionary<CellType, Sprite> tileSprites = new Dictionary<CellType, Sprite>();
     [SerializeField] private RectTransform gridContainer;
     [SerializeField] private GameObject cellPrefab;
     [SerializeField] private GameObject arrowButtonPrefab;
@@ -121,9 +102,15 @@ public class GhostBoardScreen : MonoBehaviour
         int newRow = GameManager.Instance.ghostRow + dRow;
         int newCol = GameManager.Instance.ghostCol + dCol;
 
-        //bound checker
-        if (newRow < 0 || newRow >= gridSize || newCol < 0 || newCol >= gridSize)
+        //both tiles must agree on the connection
+        if (!GameManager.Instance.CanMove(
+            GameManager.Instance.ghostRow,
+            GameManager.Instance.ghostCol,
+            newRow, newCol))
             return;
+        //bound checker
+        //if (newRow < 0 || newRow >= gridSize || newCol < 0 || newCol >= gridSize)
+        // return;
 
         //ghost can pass through walls, this is subject to change, at the very least wall movement parameters / illegal moves must 
         //- be created, and the possibility remains of the removal of the moving thru walls feature entirely .
@@ -141,6 +128,7 @@ public class GhostBoardScreen : MonoBehaviour
     {
         Vector3[] corners = new Vector3[4];
         gridContainer.GetWorldCorners(corners);
+
         //corners: 0=bottom-left, 1=top-left, 2=top-right, 3=bottom-right
 
         RectTransform canvasRect = rootCanvas.GetComponent<RectTransform>();
@@ -160,10 +148,10 @@ public class GhostBoardScreen : MonoBehaviour
             float cellCentreX = topLeft.x + (i * cellW) + (cellW / 2f);
             float cellCentreY = topLeft.y - (i * cellH) - (cellH / 2f);
 
-            SpawnArrow("→", "row", i, 1, new Vector2(bottomLeft.x - arrowOffset, cellCentreY));
-            SpawnArrow("←", "row", i, -1, new Vector2(topRight.x + arrowOffset, cellCentreY));
-            SpawnArrow("↓", "col", i, 1, new Vector2(cellCentreX, topLeft.y + arrowOffset));
-            SpawnArrow("↑", "col", i, -1, new Vector2(cellCentreX, bottomLeft.y - arrowOffset));
+            SpawnArrow("→", "row", i, -1, new Vector2(bottomLeft.x - arrowOffset, cellCentreY));
+            SpawnArrow("←", "row", i, 1, new Vector2(topRight.x + arrowOffset, cellCentreY));
+            SpawnArrow("↓", "col", i, -1, new Vector2(cellCentreX, topLeft.y + arrowOffset));
+            SpawnArrow("↑", "col", i, 1, new Vector2(cellCentreX, bottomLeft.y - arrowOffset));
         }
     }
 
@@ -190,6 +178,16 @@ public class GhostBoardScreen : MonoBehaviour
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = canvasLocalPos;
         rt.sizeDelta = new Vector2(arrowSize, arrowSize);
+
+        //just hotfix by making it rotate the child and not the canvas itself
+        Image arrowImage = btn.GetComponentInChildren<Image>();
+        if (arrowImage != null)
+        {
+            if (label == "←") arrowImage.rectTransform.localEulerAngles = new Vector3(0, 0, 180f);
+            if (label == "↑") arrowImage.rectTransform.localEulerAngles = new Vector3(0, 0, 90f);
+            if (label == "↓") arrowImage.rectTransform.localEulerAngles = new Vector3(0, 0, 270f);
+        }
+
         // size driven by inspector field now, was hardcoded 65f before
 
         TMP_Text text = btn.GetComponentInChildren<TMP_Text>();
@@ -219,6 +217,19 @@ public class GhostBoardScreen : MonoBehaviour
 
     //updates round counter, move count, and shift availability text
     //also greys out dpad when moves run out
+
+    //loads all tile sprites from Resources/Tiles/ by matching enum names
+    void LoadTileSprites()
+    {
+        foreach (CellType type in System.Enum.GetValues(typeof(CellType)))
+        {
+            Sprite s = Resources.Load<Sprite>($"Tiles/{type}");
+            if (s != null)
+                tileSprites[type] = s;
+            else
+                Debug.LogWarning($"missing sprite for tile: {type}");
+        }
+    }
     void RefreshHUD()
     {
         if (roundLabel != null)
@@ -256,7 +267,13 @@ public class GhostBoardScreen : MonoBehaviour
                     cellImages[r, c].color = investigatorColor;
                 //ignore investigator stuff. outdated, but not worth removing right now
                 else
-                    cellImages[r, c].color = grid[r, c] == 1 ? wallColor : passageColor;
+                {
+                    //closed = wall colour, anything else = passage colour
+                    //sprite rendering will replace this later when tiles arrive
+                    CellType cell = GameManager.Instance.grid[r, c];
+                    cellImages[r, c].color = cell == CellType.Closed ? wallColor : passageColor;
+                }
+                // cellImages[r, c].color = grid[r, c] == 1 ? wallColor : passageColor;
             }
         }
     }

@@ -184,7 +184,7 @@ MonoBehaviour:
   investigatorColor: {r: 0.101960786, g: 0.10980392, b: 0.14117648, a: 1}
   ghostColor: {r: 0.67277527, g: 0.28593364, b: 0.8537736, a: 1}
   arrowOffset: 75
-  arrowSize: 340
+  arrowSize: 500
 --- !u!1 &181268873
 GameObject:
   m_ObjectHideFlags: 0
