@@ -23,6 +23,10 @@ public class GameManager : MonoBehaviour
     public int gridSize = 6;
     // changed from 8 to 6 for 6x6 grid
 
+    [Header("Maze Preset")]
+    //drag PresetBoard component here in the Inspector to load a maze layout
+    [SerializeField] private PresetBoard presetBoard;
+
     [Header("Investigator State")]
     public int investigatorRow = 5;
     public int investigatorCol = 5;
@@ -97,9 +101,21 @@ public class GameManager : MonoBehaviour
 
     void InitialiseGrid()
     {
-        for (int r = 0; r < gridSize; r++)
-            for (int c = 0; c < gridSize; c++)
-                grid[r, c] = CellType.Open;
+        grid = new CellType[gridSize, gridSize];
+
+        if (presetBoard != null)
+        {
+            //load maze layout from the linked PresetBoard script
+            presetBoard.Apply(grid, gridSize);
+        }
+        else
+        {
+            //fallback if no preset is assigned - all open so the ghost can still move
+            Debug.LogWarning("no PresetBoard assigned in GameManager inspector, defaulting to all Open");
+            for (int r = 0; r < gridSize; r++)
+                for (int c = 0; c < gridSize; c++)
+                    grid[r, c] = CellType.Open;
+        }
         //all open placeholder until real maze preset is designed !!!
 
         //old version with checkered grid.

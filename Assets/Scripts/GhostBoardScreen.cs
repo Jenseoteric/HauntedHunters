@@ -2,12 +2,14 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 public class GhostBoardScreen : MonoBehaviour
 {
     private Dictionary<CellType, Sprite> tileSprites = new Dictionary<CellType, Sprite>();
     [SerializeField] private RectTransform gridContainer;
     [SerializeField] private GameObject cellPrefab;
+
     [SerializeField] private GameObject arrowButtonPrefab;
     [SerializeField] private Button endTurnButton;
     [SerializeField] private Button dpadUp;
@@ -26,10 +28,16 @@ public class GhostBoardScreen : MonoBehaviour
     [SerializeField] private Color ghostColor = new Color(0.85f, 0.85f, 1.00f);
     [SerializeField] private float arrowOffset = 50f;
     [SerializeField] private float arrowSize = 80f;
+
+    [SerializeField] private Button undoButton; //rolls back to the start of this turn
     // arrowsize is changeable via the inspector anyway
+
+    [Header("Ghost Sprite")]
+    [SerializeField] private Sprite ghostSprite;
 
     private int gridSize;
     private Image[,] cellImages;
+    private Image[,] ghostLayers;
     private Canvas rootCanvas;
     void Start()
     {
@@ -38,6 +46,8 @@ public class GhostBoardScreen : MonoBehaviour
             Debug.LogError("open from the ghoststart screen, moron");
             return;
         }
+
+        LoadTileSprites();
 
         gridSize = GameManager.Instance.gridSize;
         cellImages = new Image[gridSize, gridSize];
@@ -54,6 +64,8 @@ public class GhostBoardScreen : MonoBehaviour
         dpadRight.onClick.AddListener(() => TryMoveGhost(0, 1));
 
         endTurnButton.onClick.AddListener(OnEndTurn);
+        endTurnButton.onClick.AddListener(OnEndTurn);
+        if (undoButton != null) undoButton.onClick.AddListener(OnUndo); //only wire if assigned
 
         StartCoroutine(BuildArrowsNextFrame());
     }
@@ -82,6 +94,7 @@ public class GhostBoardScreen : MonoBehaviour
             layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             layout.constraintCount = gridSize;
         }
+        ghostLayers = new Image[gridSize, gridSize];
 
         for (int r = 0; r < gridSize; r++)
             for (int c = 0; c < gridSize; c++)
@@ -89,14 +102,18 @@ public class GhostBoardScreen : MonoBehaviour
                 GameObject cell = Instantiate(cellPrefab, gridContainer);
                 cell.name = $"Cell_{r}_{c}";
                 cellImages[r, c] = cell.GetComponent<Image>();
+
+                Transform ghostLayerTransform = cell.transform.Find("GhostLayer");
+                if (ghostLayerTransform != null)
+                    ghostLayers[r, c] = ghostLayerTransform.GetComponent<Image>();
             }
     }
 
     //ghost movement functions
     void TryMoveGhost(int dRow, int dCol)
     {
-        //cant move if no moves left this turn
-        if (GameManager.Instance.movesRemaining <= 0)
+        //cant move if no moves left this turn - but round 0 is unlimited
+        if (!GameManager.Instance.isPlacementRound && GameManager.Instance.movesRemaining <= 0)
             return;
 
         int newRow = GameManager.Instance.ghostRow + dRow;
@@ -233,13 +250,28 @@ public class GhostBoardScreen : MonoBehaviour
     void RefreshHUD()
     {
         if (roundLabel != null)
-            roundLabel.text = $"Round {GameManager.Instance.roundNumber}";
+            roundLabel.text = GameManager.Instance.isPlacementRound
+                ? "Round 0"
+                : $"Round {GameManager.Instance.roundNumber}";
 
         if (movesLabel != null)
             movesLabel.text = $"Moves: {GameManager.Instance.movesRemaining}";
 
         if (shiftLabel != null)
             shiftLabel.text = GameManager.Instance.hasShiftedBoard ? "Shift: Used" : "Shift: Available";
+
+        bool canMove = GameManager.Instance.isPlacementRound
+            || GameManager.Instance.movesRemaining > 0;
+        dpadUp.interactable = canMove;
+        dpadDown.interactable = canMove;
+        dpadLeft.interactable = canMove;
+        dpadRight.interactable = canMove;
+
+        GameManager.Instance.ghostRow = newRow;
+        GameManager.Instance.ghostCol = newCol;
+        if (!GameManager.Instance.isPlacementRound)   //dont spend moves during round 0
+            GameManager.Instance.movesRemaining--;
+
 
         //grey out dpad buttons when no moves remain
         bool canMove = GameManager.Instance.movesRemaining > 0;
@@ -249,11 +281,7 @@ public class GhostBoardScreen : MonoBehaviour
         dpadRight.interactable = canMove;
     }
     void RefreshGrid()
-    //this does what it says, simply updates the grid each time it needs to do so
     {
-        int[,] grid = GameManager.Instance.grid;
-        int invRow = GameManager.Instance.investigatorRow;
-        int invCol = GameManager.Instance.investigatorCol;
         int ghRow = GameManager.Instance.ghostRow;
         int ghCol = GameManager.Instance.ghostCol;
 
@@ -261,27 +289,46 @@ public class GhostBoardScreen : MonoBehaviour
         {
             for (int c = 0; c < gridSize; c++)
             {
-                if (r == ghRow && c == ghCol)
-                    cellImages[r, c].color = ghostColor;
-                else if (r == invRow && c == invCol)
-                    cellImages[r, c].color = investigatorColor;
-                //ignore investigator stuff. outdated, but not worth removing right now
-                else
+                //always set the tile sprite on the base layer
+                CellType cell = GameManager.Instance.grid[r, c];
+                if (tileSprites.ContainsKey(cell))
                 {
-                    //closed = wall colour, anything else = passage colour
-                    //sprite rendering will replace this later when tiles arrive
-                    CellType cell = GameManager.Instance.grid[r, c];
-                    cellImages[r, c].color = cell == CellType.Closed ? wallColor : passageColor;
+                    cellImages[r, c].sprite = tileSprites[cell];
+                    cellImages[r, c].color = Color.white;
                 }
-                // cellImages[r, c].color = grid[r, c] == 1 ? wallColor : passageColor;
+                else
+                    cellImages[r, c].color = cell == CellType.Closed ? wallColor : passageColor;
+
+                //ghost overlay - show on ghost cell, hide on all others
+                if (ghostLayers[r, c] != null)
+                {
+                    bool isGhostCell = (r == ghRow && c == ghCol);
+                    ghostLayers[r, c].gameObject.SetActive(isGhostCell);
+                    if (isGhostCell)
+                    {
+                        ghostLayers[r, c].sprite = ghostSprite;
+                        ghostLayers[r, c].color = Color.white;
+                    }
+                }
             }
         }
     }
+
     void OnEndTurn()
     {
         GameManager.Instance.EndGhostTurn();
         endTurnButton.interactable = false;
         SceneManager.LoadScene(nextSceneName);
+    }
+
+    void OnUndo()
+    {
+        //roll the whole gamestate back to the start of this turn
+        if (GameManager.Instance.UndoToSnapshot())
+        {
+            RefreshGrid();
+            RefreshHUD();
+        }
     }
 
     void OnDestroy()
@@ -292,5 +339,6 @@ public class GhostBoardScreen : MonoBehaviour
         dpadDown.onClick.RemoveAllListeners();
         dpadLeft.onClick.RemoveAllListeners();
         dpadRight.onClick.RemoveAllListeners();
+        if (undoButton != null) undoButton.onClick.RemoveAllListeners();
     }
 }
