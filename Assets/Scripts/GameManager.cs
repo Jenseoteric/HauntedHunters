@@ -23,9 +23,13 @@ public class GameManager : MonoBehaviour
     public int gridSize = 6;
     // changed from 8 to 6 for 6x6 grid
 
-    [Header("Maze Preset")]
-    //drag PresetBoard component here in the Inspector to load a maze layout
+    [Header("Maze Presets")]
+    //drag both PresetBoard components here in the Inspector
     [SerializeField] private PresetBoard presetBoard;
+    [SerializeField] private PresetBoard2 presetBoard2;
+    [SerializeField] private PresetBoard3 presetBoard3;
+    //which map to load. set by the map select screen. 0 = first preset, 1 = second
+    public static int selectedMap = 0;
 
     [Header("Investigator State")]
     public int investigatorRow = 5;
@@ -35,18 +39,24 @@ public class GameManager : MonoBehaviour
     [Header("Ghost State")]
     public int ghostRow = 0;
     public int ghostCol = 0;
-
-    [Header("Turn Resources")]
-    public int maxMovesPerTurn = 3;    //how many steps ghost can move per turn
-    public int movesRemaining = 3;    //counts down, resets on EndGhostTurn
-    public bool hasShiftedBoard = false; //only one row/col shift allowed per turn
-
-    [Header("Round Tracking")]
+    public int maxMovesPerTurn = 3;
+    public int movesRemaining = 3;
+    public bool hasShiftedBoard = false;
     public int roundNumber = 1;
+    //round 0 is the free placement round. once the ghost ends turn 0, real rounds begin at 1
+    public bool isPlacementRound = true; //true during round 0, lets ghost move freely with no limits
 
     //grid 0 = open passage and 1 = wall
     //not in use yet tho ^
     public CellType[,] grid; // used to be 'int[,] instead of CellType[,]. this change is done so tiles can be realised on the app
+
+
+    // pressing undo restores the player state to the state it was at the beginning of the turn
+    private CellType[,] snapGrid;
+    private int snapGhostRow, snapGhostCol;
+    private int snapMoves, snapRound;
+    private bool snapShifted, snapPlacement;
+    private bool hasSnapshot = false; //false until at least one turn has begun
 
     private static readonly Dictionary<CellType, bool[]> exits = new Dictionary<CellType, bool[]>
 {
@@ -75,6 +85,10 @@ public class GameManager : MonoBehaviour
 
             return false;
 
+        //during placement round the ghost can move/teleport anywhere, skip the wall check
+        if (isPlacementRound)
+            return true;
+
         int dRow = toRow - fromRow;
         int dCol = toCol - fromCol;
 
@@ -97,13 +111,23 @@ public class GameManager : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
         InitialiseGrid();
+        TakeSnapshot(); //snapshot the freshly built board so undo works from turn 1
     }
 
     void InitialiseGrid()
     {
         grid = new CellType[gridSize, gridSize];
 
-        if (presetBoard != null)
+        //load whichever preset the map select screen chose
+        if (selectedMap == 1 && presetBoard2 != null)
+        {
+            presetBoard2.Apply(grid, gridSize);
+        }
+        else if (selectedMap == 2 && presetBoard3 != null)
+        {
+            presetBoard3.Apply(grid, gridSize);
+        }
+        else if (presetBoard != null)
         {
             //load maze layout from the linked PresetBoard script
             presetBoard.Apply(grid, gridSize);
@@ -128,12 +152,58 @@ public class GameManager : MonoBehaviour
                 grid[r, c] = (r + c) % 2 == 0 ? 0 : 1; */
     }
 
+    //
+    // SNAPSHOT SYSTEM
+    // TakeSnapshot saves the current state. called at the start of each turn.
+    // UndoToSnapshot rolls everything back to that saved state (one turn back).
+    //
+    public void TakeSnapshot()
+    {
+        snapGrid = new CellType[gridSize, gridSize];
+        for (int r = 0; r < gridSize; r++)
+            for (int c = 0; c < gridSize; c++)
+                snapGrid[r, c] = grid[r, c];
+
+        snapGhostRow = ghostRow;
+        snapGhostCol = ghostCol;
+        snapMoves = movesRemaining;
+        snapRound = roundNumber;
+        snapShifted = hasShiftedBoard;
+        snapPlacement = isPlacementRound;
+        hasSnapshot = true;
+    }
+
+    //returns false if theres nothing to undo to
+    public bool UndoToSnapshot()
+    {
+        if (!hasSnapshot)
+            return false;
+
+        for (int r = 0; r < gridSize; r++)
+            for (int c = 0; c < gridSize; c++)
+                grid[r, c] = snapGrid[r, c];
+
+        ghostRow = snapGhostRow;
+        ghostCol = snapGhostCol;
+        movesRemaining = snapMoves;
+        roundNumber = snapRound;
+        hasShiftedBoard = snapShifted;
+        isPlacementRound = snapPlacement;
+        return true;
+    }
+
     //called when ghost presses end turn
     public void EndGhostTurn()
     {
+        //leaving round 0 (placement) means the real game starts now
+        if (isPlacementRound)
+            isPlacementRound = false;
+
         roundNumber++;
         movesRemaining = maxMovesPerTurn;
         hasShiftedBoard = false;
+
+        TakeSnapshot(); //save the state at the start of the new turn so undo can return here
     }
 
     //below is for maze shifting

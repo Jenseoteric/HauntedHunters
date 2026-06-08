@@ -1,21 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-
-/// <summary>
-/// MainMenuScreen.cs
-/// First screen of the app. Two buttons:
-///   Begin Game  -> loads GhostStart (uses whatever map is currently selected)
-///   Choose Map  -> loads MapSelect screen
-///
-/// SCENE NAME: "MainMenu" (set this as build index 0)
-///
-/// INSPECTOR SETUP:
-/// - beginButton      -> Button to start the game
-/// - chooseMapButton  -> Button to open map select
-/// - gameSceneName    -> "GhostStart"
-/// - mapSelectSceneName -> "MapSelect"
-/// </summary>
 public class MainMenuScreen : MonoBehaviour
 {
     [Header("UI References")]

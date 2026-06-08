@@ -31,14 +31,16 @@ public class GhostBoardScreen : MonoBehaviour
 
     [SerializeField] private Button undoButton; //rolls back to the start of this turn
     // arrowsize is changeable via the inspector anyway
-
-    [Header("Ghost Sprite")]
     [SerializeField] private Sprite ghostSprite;
+    //footstep sound played each time the ghost moves a tile
+    [SerializeField] private AudioSource audioSource;
+    private AudioClip moveSound;
 
     private int gridSize;
     private Image[,] cellImages;
     private Image[,] ghostLayers;
     private Canvas rootCanvas;
+
     void Start()
     {
         if (GameManager.Instance == null)
@@ -48,6 +50,7 @@ public class GhostBoardScreen : MonoBehaviour
         }
 
         LoadTileSprites();
+        LoadMoveSound();
 
         gridSize = GameManager.Instance.gridSize;
         cellImages = new Image[gridSize, gridSize];
@@ -64,12 +67,25 @@ public class GhostBoardScreen : MonoBehaviour
         dpadRight.onClick.AddListener(() => TryMoveGhost(0, 1));
 
         endTurnButton.onClick.AddListener(OnEndTurn);
-        endTurnButton.onClick.AddListener(OnEndTurn);
         if (undoButton != null) undoButton.onClick.AddListener(OnUndo); //only wire if assigned
 
         StartCoroutine(BuildArrowsNextFrame());
     }
 
+    //loads the movement sound from Resources/Audio/
+    void LoadMoveSound()
+    {
+        moveSound = Resources.Load<AudioClip>("Audio/mud_mono_02");
+        if (moveSound == null)
+            Debug.LogWarning("GhostBoardScreen: could not find Audio/mud_mono_02 in Resources");
+    }
+
+    //plays the footstep sound if available
+    void PlayMoveSound()
+    {
+        if (audioSource != null && moveSound != null)
+            audioSource.PlayOneShot(moveSound);
+    }
 
     IEnumerator BuildArrowsNextFrame()
     //coroutine for grid gen
@@ -134,7 +150,12 @@ public class GhostBoardScreen : MonoBehaviour
 
         GameManager.Instance.ghostRow = newRow;
         GameManager.Instance.ghostCol = newCol;
-        GameManager.Instance.movesRemaining--;
+        //dont spend moves during round 0 (placement is free)
+        if (!GameManager.Instance.isPlacementRound)
+            GameManager.Instance.movesRemaining--;
+
+        //play footstep sound on every successful move
+        PlayMoveSound();
 
         RefreshGrid();
         RefreshHUD();
@@ -174,16 +195,13 @@ public class GhostBoardScreen : MonoBehaviour
 
     Vector2 WorldToCanvasLocal(Vector3 worldPos, RectTransform canvasRect)
     {
-
         Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(null, worldPos);
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect, screenPoint, null, out Vector2 localPoint);
         return localPoint;
-
     }
 
     void SpawnArrow(string label, string axis, int index, int direction, Vector2 canvasLocalPos)
-
     {
         GameObject btn = Instantiate(arrowButtonPrefab, rootCanvas.transform);
         btn.transform.SetAsLastSibling();
@@ -232,9 +250,6 @@ public class GhostBoardScreen : MonoBehaviour
         RefreshHUD();
     }
 
-    //updates round counter, move count, and shift availability text
-    //also greys out dpad when moves run out
-
     //loads all tile sprites from Resources/Tiles/ by matching enum names
     void LoadTileSprites()
     {
@@ -247,40 +262,35 @@ public class GhostBoardScreen : MonoBehaviour
                 Debug.LogWarning($"missing sprite for tile: {type}");
         }
     }
+
+    //updates round counter, move count, and shift availability text
+    //also greys out dpad when moves run out
     void RefreshHUD()
     {
         if (roundLabel != null)
             roundLabel.text = GameManager.Instance.isPlacementRound
                 ? "Round 0"
-                : $"Round {GameManager.Instance.roundNumber}";
+                : $"Round {GameManager.Instance.roundNumber - 1}";
 
         if (movesLabel != null)
-            movesLabel.text = $"Moves: {GameManager.Instance.movesRemaining}";
+            movesLabel.text = GameManager.Instance.isPlacementRound
+                ? "Setup"
+                : $"Moves: {GameManager.Instance.movesRemaining}"; //this fixes the bug where it said "round 3" during setup round"
 
         if (shiftLabel != null)
             shiftLabel.text = GameManager.Instance.hasShiftedBoard ? "Shift: Used" : "Shift: Available";
 
+        //placement round is unlimited movement, so always allow dpad
         bool canMove = GameManager.Instance.isPlacementRound
             || GameManager.Instance.movesRemaining > 0;
         dpadUp.interactable = canMove;
         dpadDown.interactable = canMove;
         dpadLeft.interactable = canMove;
         dpadRight.interactable = canMove;
-
-        GameManager.Instance.ghostRow = newRow;
-        GameManager.Instance.ghostCol = newCol;
-        if (!GameManager.Instance.isPlacementRound)   //dont spend moves during round 0
-            GameManager.Instance.movesRemaining--;
-
-
-        //grey out dpad buttons when no moves remain
-        bool canMove = GameManager.Instance.movesRemaining > 0;
-        dpadUp.interactable = canMove;
-        dpadDown.interactable = canMove;
-        dpadLeft.interactable = canMove;
-        dpadRight.interactable = canMove;
     }
+
     void RefreshGrid()
+    //this does what it says, simply updates the grid each time it needs to do so
     {
         int ghRow = GameManager.Instance.ghostRow;
         int ghCol = GameManager.Instance.ghostCol;

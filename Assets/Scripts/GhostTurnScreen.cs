@@ -2,17 +2,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using System.Collections;
-
-/// <summary>
-/// GhostTurnScreen.cs
-/// Attach to a Canvas GameObject in your Ghost Turn scene.
-///
-/// INSPECTOR SETUP:
-/// - titleText       → TMP_Text component on your "Ghost Begin your turn!" label
-/// - startButton     → Button component on the Start button
-/// - nextSceneName   → Name of the scene to load when Start is pressed
-/// - flickerInterval → Seconds between title flicker effects (default 6)
-/// </summary>
 public class GhostTurnScreen : MonoBehaviour
 {
     [SerializeField] private TMPro.TMP_Text titleText;
